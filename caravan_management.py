@@ -22,11 +22,17 @@ class CaravanResources:
 # Member Class
 class Member:
 
-    def __init__(self, name, role, health, skill_level):
+    def __init__(self, name, role, health, skill_level, upfront_fee, wage,
+                 food_consumption, water_consumption):
         self.name = name
         self.role = role
         self.health = health
         self.skill_level = skill_level
+        self.upfront_fee = upfront_fee
+        self.wage = wage
+        self.food_consumption = food_consumption
+        self.water_consumption = water_consumption
+        self.morale = 100  # Initialize morale at 100
 
     def update_health(self, amount):
         self.health += amount
@@ -34,10 +40,18 @@ class Member:
             self.health = 0
         elif self.health > 100:
             self.health = 100
+        self.update_morale(amount)  # Decrease morale if health decreases
+
+    def update_morale(self, amount):
+        self.morale += amount
+        if self.morale < 0:
+            self.morale = 0
+        elif self.morale > 100:
+            self.morale = 100
 
     def display_member(self):
         print(
-            f"Name: {self.name}, Role: {self.role}, Health: {self.health}, Skill Level: {self.skill_level}"
+            f"Name: {self.name}, Role: {self.role}, Health: {self.health}, Morale: {self.morale}, Skill Level: {self.skill_level}, Upfront Fee: {self.upfront_fee}, Wage: {self.wage}, Food Consumption: {self.food_consumption}, Water Consumption: {self.water_consumption}"
         )
 
 
@@ -63,6 +77,17 @@ class Caravan:
         self.resources.display_resources()
         for member in self.members:
             member.display_member()
+
+    def check_members(self):
+        members_to_remove = [
+            member.name for member in self.members
+            if member.health == 0 or member.morale == 0
+        ]
+        for member_name in members_to_remove:
+            print(
+                f"{member_name} has left the caravan due to low health or morale."
+            )
+            self.remove_member(member_name)
 
 
 # Route Class
