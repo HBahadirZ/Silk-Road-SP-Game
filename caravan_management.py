@@ -15,6 +15,17 @@ class CaravanResources:
             if self.__dict__[resource] < 0:
                 self.__dict__[resource] = 0
 
+    def add_bulk_resources(self, food=0, water=0, money=0):
+        self.food += food
+        self.water += water
+        self.money += money
+        self.validate_resources()
+
+    def validate_resources(self):
+        self.food = max(0, self.food)
+        self.water = max(0, self.water)
+        self.money = max(0, self.money)
+
     def display_resources(self):
         print(f"Food: {self.food}, Water: {self.water}, Money: {self.money}")
 
@@ -22,8 +33,16 @@ class CaravanResources:
 # Member Class
 class Member:
 
-    def __init__(self, name, role, health, skill_level, upfront_fee, wage,
-                 food_consumption, water_consumption):
+    def __init__(self,
+                 name,
+                 role,
+                 health,
+                 skill_level,
+                 upfront_fee,
+                 wage,
+                 food_consumption,
+                 water_consumption,
+                 morale=100):
         self.name = name
         self.role = role
         self.health = health
@@ -32,7 +51,8 @@ class Member:
         self.wage = wage
         self.food_consumption = food_consumption
         self.water_consumption = water_consumption
-        self.morale = 100  # Initialize morale at 100
+        self.morale = morale  # Initialize morale attribute
+        self.traits = []
 
     def update_health(self, amount):
         self.health += amount
@@ -49,9 +69,13 @@ class Member:
         elif self.morale > 100:
             self.morale = 100
 
+    def add_trait(self, trait):
+        self.traits.append(trait)
+
     def display_member(self):
+        traits_str = ", ".join(self.traits)
         print(
-            f"Name: {self.name}, Role: {self.role}, Health: {self.health}, Morale: {self.morale}, Skill Level: {self.skill_level}, Upfront Fee: {self.upfront_fee}, Wage: {self.wage}, Food Consumption: {self.food_consumption}, Water Consumption: {self.water_consumption}"
+            f"Name: {self.name}, Role: {self.role}, Health: {self.health}, Morale: {self.morale}, Skill Level: {self.skill_level}, Upfront Fee: {self.upfront_fee}, Wage: {self.wage}, Food Consumption: {self.food_consumption}, Water Consumption: {self.water_consumption}, Traits: {traits_str}"
         )
 
 
@@ -59,7 +83,7 @@ class Member:
 class Caravan:
 
     def __init__(self):
-        self.resources = CaravanResources(food=100, water=100, money=500)
+        self.resources = CaravanResources(food=100, water=100, money=750)
         self.members = []
 
     def add_member(self, member):
@@ -72,6 +96,14 @@ class Caravan:
 
     def update_resources(self, resource, amount):
         self.resources.update_resource(resource, amount)
+
+    def update_members_health(self, amount):
+        for member in self.members:
+            member.update_health(amount)
+
+    def update_members_morale(self, amount):
+        for member in self.members:
+            member.update_morale(amount)
 
     def display_caravan(self):
         self.resources.display_resources()
@@ -93,15 +125,17 @@ class Caravan:
 # Route Class
 class Route:
 
-    def __init__(self, name, length, danger_level, rewards):
+    def __init__(self, name, length, danger_level, rewards, hazards=None):
         self.name = name
         self.length = length
         self.danger_level = danger_level
         self.rewards = rewards
+        self.hazards = hazards if hazards else []
 
     def display_route(self):
+        hazards_str = ", ".join(self.hazards)
         print(
-            f"Route: {self.name}, Length: {self.length}, Danger Level: {self.danger_level}, Rewards: {self.rewards}"
+            f"Route: {self.name}, Length: {self.length}, Danger Level: {self.danger_level}, Rewards: {self.rewards}, Hazards: {hazards_str}"
         )
 
 
@@ -161,26 +195,73 @@ class EventSystem:
 
     # Event Handlers
     def bandit_attack(self, caravan):
-        loss_food = random.randint(5, 20)
-        loss_money = random.randint(10, 50)
-        damage_health = random.randint(10, 30)
-        caravan.update_resources('food', -loss_food)
-        caravan.update_resources('money', -loss_money)
-        for member in caravan.members:
-            member.update_health(-damage_health)
+        bandit_power = random.randint(50, 150)
+        member_power = sum(member.skill_level for member in caravan.members)
+
         print(
-            f"Lost {loss_food} food, {loss_money} money, and members took {damage_health} damage each."
-        )
+            f"Bandits' Power: {bandit_power}, Members' Power: {member_power}")
+
+        if bandit_power > 1.5 * member_power:
+            # Scenario 1: Bandits kill all members and take half the money
+            caravan.members.clear()
+            caravan.update_resources('money', -caravan.resources.money // 2)
+            if not caravan.members:
+                print(
+                    "Bandits took all the money as there were no one to protect your money."
+                )
+                caravan.update_resources('money', -caravan.resources.money)
+            else:
+                print(
+                    "Bandits were much more powerful! All members are killed and half the money is stolen."
+                )
+        elif bandit_power > member_power:
+            # Scenario 2: Bandits kill one member randomly and take 25% of the money
+            if caravan.members:
+                killed_member = random.choice(caravan.members)
+                caravan.remove_member(killed_member.name)
+                print(
+                    f"Bandits were slightly more powerful! {killed_member.name} is killed."
+                )
+            caravan.update_resources('money', -caravan.resources.money // 4)
+            print("25% of the money is stolen.")
+        elif member_power > bandit_power:
+            if member_power > 1.5 * bandit_power:
+                # Scenario 4: Members are much more powerful, no harm
+                print(
+                    "Members were much more powerful! No harm to the caravan.")
+            else:
+                # Scenario 3: Members' health decreases a little
+                damage_health = random.randint(5, 15)
+                for member in caravan.members:
+                    member.update_health(-damage_health)
+                print(
+                    f"Members were slightly more powerful! Each member took {damage_health} damage."
+                )
+        else:
+            # Default case (should not be reached)
+            print("Unexpected outcome in bandit attack.")
 
     def illness_outbreak(self, caravan):
-        loss_water = random.randint(5, 15)
-        damage_health = random.randint(5, 20)
-        caravan.update_resources('water', -loss_water)
-        for member in caravan.members:
-            member.update_health(-damage_health)
-        print(
-            f"Lost {loss_water} water and members took {damage_health} damage each."
-        )
+        if not caravan.members:
+            print(
+                "There are no members in the caravan to be affected by the illness."
+            )
+            return
+
+        illness_power = random.randint(5, 30)
+        num_affected_members = random.randint(1, len(caravan.members))
+
+        affected_members = random.sample(caravan.members, num_affected_members)
+        print(f"Illness Power: {illness_power}")
+
+        for member in affected_members:
+            member.update_health(-illness_power)
+            print(
+                f"{member.name} was affected by the illness and lost {illness_power} health."
+            )
+
+        if not affected_members:
+            print("No members were affected by the illness.")
 
     def natural_disaster(self, caravan):
         loss_water = random.randint(10, 30)

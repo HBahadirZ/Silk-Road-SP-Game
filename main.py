@@ -4,29 +4,77 @@ from data import markets, goods, potential_members
 import json
 import random
 
+available_members = []  # Global list to track currently available members
 
-def generate_potential_members():
-    return random.sample(potential_members, 3)
+can_hire_members = False
 
 
-def hire_member(caravan, available_members):
+def generate_potential_members(number_of_members):
+    global available_members
+    available_members = random.sample(potential_members, number_of_members)
+
+
+def initial_hiring(caravan):
+    global available_members
+    print("\nInitial Members for Hire:")
+    for i, member in enumerate(available_members):
+        print(
+            f"{i + 1}. {member.name}, Role: {member.role}, Skill Level: {member.skill_level}, Upfront Fee: {member.upfront_fee}, Wage: {member.wage}"
+        )
+
+    hired_members = 0
+    while hired_members < 3:
+        try:
+            choice = int(
+                input(
+                    f"Select a member to hire (you need to hire {3 - hired_members} more) (enter number): "
+                ).strip()) - 1
+            if 0 <= choice < len(available_members):
+                member = available_members[choice]
+                if caravan.resources.money >= member.upfront_fee:
+                    available_members.pop(choice)
+                    caravan.add_member(member)
+                    caravan.resources.money -= member.upfront_fee
+                    print(f"Hired {member.name} as {member.role}.")
+                    hired_members += 1
+                else:
+                    print("Not enough money to hire this member.")
+            else:
+                print("Invalid choice. Please try again.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+def hire_member(caravan):
+    global can_hire_members, available_members
+
+    if not can_hire_members:
+        print("You cannot hire members until you travel to another city.")
+        return
+
+    if not available_members:
+        print(
+            "No available members to hire. Please travel to another city to find new members."
+        )
+        return
+
     print("\nAvailable Members for Hire:")
     for i, member in enumerate(available_members):
         print(
-            f"{i + 1}. Name: {member.name}, Role: {member.role}, Health: {member.health}, Morale: {member.morale}, Skill Level: {member.skill_level}, Upfront Fee: {member.upfront_fee}, Wage: {member.wage}, Food Consumption: {member.food_consumption}, Water Consumption: {member.water_consumption}"
+            f"{i + 1}. {member.name}, Role: {member.role}, Skill Level: {member.skill_level}, Upfront Fee: {member.upfront_fee}, Wage: {member.wage}"
         )
 
-    choice = int(input("Select a member to hire (1-3): ").strip()) - 1
-    if 0 <= choice < len(available_members):
-        selected_member = available_members[choice]
-        if caravan.resources.money >= selected_member.upfront_fee:
-            caravan.resources.money -= selected_member.upfront_fee
-            caravan.add_member(selected_member)
-            print(f"{selected_member.name} hired!")
+    try:
+        choice = int(
+            input("Select a member to hire (enter number): ").strip()) - 1
+        if 0 <= choice < len(available_members):
+            member = available_members.pop(choice)
+            caravan.add_member(member)
+            print(f"Hired {member.name} as {member.role}.")
         else:
-            print("Not enough money to hire this member.")
-    else:
-        print("Invalid choice. Please try again.")
+            print("Invalid choice. Please try again.")
+    except ValueError:
+        print("Invalid input. Please enter a number.")
 
 
 def manage_caravan(caravan):
@@ -38,8 +86,7 @@ def manage_caravan(caravan):
 
     choice = input("Enter your choice: ").strip()
     if choice == "1":
-        available_members = generate_potential_members()
-        hire_member(caravan, available_members)
+        hire_member(caravan)
     elif choice == "2":
         name = input("Enter the name of the member to remove: ").strip()
         caravan.remove_member(name)
@@ -78,6 +125,12 @@ def pay_wages(caravan):
             member.update_morale(-50)  # Decrease morale if wages are not paid
 
 
+def reset_available_members():
+    global can_hire_members
+    generate_potential_members(3)  # Generate new potential members
+    can_hire_members = True
+
+
 def travel(caravan, event_system):
     routes = [
         Route(name="Desert Path",
@@ -106,6 +159,7 @@ def travel(caravan, event_system):
         selected_route = routes[choice]
         selected_route.display_route()
         simulate_travel(caravan, selected_route, event_system)
+        reset_available_members()  # Reset available members after travel
     else:
         print("Invalid choice. Please try again.")
 
@@ -118,6 +172,15 @@ def simulate_travel(caravan, route, event_system):
         update_daily_consumption(caravan)
         caravan.check_members()
         caravan.display_caravan()
+
+        # Wait for user input to continue to the next day
+        while True:
+            cont = input("Press 'c' to continue to the next day: ")
+            if cont:
+                break
+            else:
+                print("Invalid input. Please press 'c' to continue.")
+
     pay_wages(caravan)  # Pay wages at the end of the travel
 
 
@@ -181,10 +244,13 @@ def load_game(player, caravan):
 
 
 def main():
+    global can_hire_members
     caravan = Caravan()  # Create a new caravan instance
     player = Player(caravan)  # Link the player to the caravan
     event_system = EventSystem()  # Initialize the event system
-
+    generate_potential_members(5)
+    initial_hiring(caravan)
+    can_hire_members = False
     while True:
         print("\nMain Menu:")
         print("1. Travel to a Market")
